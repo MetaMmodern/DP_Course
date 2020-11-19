@@ -1,88 +1,128 @@
+const { stat } = require("fs");
+const { Stream } = require("stream");
 const { scan, scan_numbers } = require("./scan_helpers");
+const chalk = require("chalk");
 
-module.exports = function lexer(str) {
-  const seperated = str.split("");
-  let index = 0;
-  const lexems = [];
-  while (index < seperated.length) {
-    const char = seperated[index];
-    const lexeme = {};
-    if (char.match(/[a-z]/i)) {
-      const scanned = scan(seperated.slice(index), " ");
-      if (["print", "goto", "end"].includes(scanned)) {
-        //functions
-        lexeme[scanned] = scanned;
-        lexems.push(lexeme);
-        index += scanned.length;
-        continue;
-      } else if (scanned === "rem") {
-        //COMMENTS
-        const comment = scan(seperated.slice(index + 4), "\n");
-        lexeme.rem = comment;
-        lexems.push(lexeme);
-        index += scanned.length + comment.length + 1;
-        continue;
-      }
-    } else if (char.match(/[\+]/)) {
-      // operators
-      lexeme.sum = char;
-      lexems.push(lexeme);
-      index++;
-      continue;
-    } else if (char.match(/[\:]/)) {
-      // operators
-      lexeme.seperator = char;
-      lexems.push(lexeme);
-      index++;
-      continue;
-    } else if (char.match(/[;]/)) {
-      // operators
-      lexeme.print_seperator = char;
-      lexems.push(lexeme);
-      index++;
-      continue;
-    } else if (char === '"' || char === "'") {
-      //STRINGS
-      const scanned = scan(seperated.slice(index + 1), char);
-      lexeme.string = scanned;
-      lexems.push(lexeme);
-      index += scanned.length + 2;
-      continue;
-    } else if (char.match(/[0-9]/)) {
-      //INTEGERS
-      let scanned = scan_numbers(seperated.slice(index));
-      index += scanned.length;
-      lexeme.integer = Number(scanned);
-      lexems.push(lexeme);
-      continue;
-    } else if (char === ".") {
-      let scanned = scan_numbers(seperated.slice(index));
-      index += scanned.length;
-      if (scanned !== ".") {
-        lexeme.integer = Number(scanned);
-        lexems.push(lexeme);
-      } else {
-        lexeme.integer = 0.0;
-        lexems.push(lexeme);
-      }
-      continue;
-    } else if (char === "\n") {
-      //NEWLINE
-      lexeme.new_line = "";
-      lexems.push(lexeme);
-      index++;
-      continue;
-    } else if (char === " ") {
-      //WHITESPACE
-      index++;
-      continue;
+module.exports = function lexer(fileStream) {
+  let state = {
+    line: 1,
+    column: 1,
+  };
+  const lexemStream = Stream.Duplex();
+  lexemStream._read = () => {};
+  let newcol = 1;
+  function linesWatcher(span) {
+    state = { ...state, column: state.column + span };
+  }
+  function undefineder(lexeme, chunk) {
+    fileStream.close();
+    lexeme.token.undefined_token = chunk.toString();
+    const error = {
+      message: "UNDEFINED_TOKEN",
+      lexeme,
+    };
+    throw error;
+  }
+  function wordsReader(lexeme, chunk) {
+    fileStream.unshift(chunk);
+    const scanned = scan(fileStream, " ");
+    lexeme.srcloc.span = scanned.length;
+    if (["print", "goto", "end"].includes(scanned)) {
+      //functions
+      lexeme.token[scanned] = scanned;
+      lexemStream.push(JSON.stringify(lexeme));
+      linesWatcher(scanned.length);
+    } else if (scanned === "rem") {
+      //COMMENTS
+      const comment = scan(fileStream, "\n");
+      lexeme.token.rem = comment;
+      lexemStream.push(JSON.stringify(lexeme));
+      linesWatcher(scanned.length);
     } else {
       //undefined lexems
-      lexeme.undefined_token = char;
-      lexems.push(lexeme);
-      index++;
-      continue;
+      undefineder(lexeme, chunk);
     }
   }
-  console.log(lexems);
+  function stringsReader(lexeme, chunk) {
+    const scanned = scan(fileStream, chunk.toString());
+    lexeme.token.string = scanned;
+    lexeme.srcloc.span = scanned.length + 2;
+    lexemStream.push(JSON.stringify(lexeme));
+    linesWatcher(scanned.length + 2);
+    fileStream.read(1);
+  }
+  function numbersReader(lexeme, chunk) {
+    if (chunk.toString().match(/[0-9]/)) {
+      fileStream.unshift(chunk);
+      let scanned = scan_numbers(fileStream);
+      lexeme.token.integer = Number(scanned);
+      lexeme.srcloc.span = scanned.length;
+      lexemStream.push(JSON.stringify(lexeme));
+      linesWatcher(scanned.length);
+    } else if (chunk.toString() === ".") {
+      fileStream.unshift(chunk);
+      let scanned = scan_numbers(fileStream);
+      if (scanned !== ".") {
+        lexeme.token.integer = Number(scanned);
+        lexeme.srcloc.span = scanned.length;
+        lexemStream.push(JSON.stringify(lexeme));
+        linesWatcher(scanned.length);
+      } else {
+        lexeme.token.integer = 0.0;
+        lexeme.srcloc.span = scanned.length;
+        lexemStream.push(JSON.stringify(lexeme));
+        linesWatcher(scanned.length);
+      }
+    }
+  }
+  function newLineReader(lexeme) {
+    lexeme.srcloc.span = 1;
+    lexeme.token.new_line = "";
+    lexemStream.push(JSON.stringify(lexeme));
+    state = { line: state.line + 1, column: 1 };
+  }
+  function operatorReader(lexeme, chunk) {
+    lexeme.srcloc.span = 1;
+    if (chunk.toString().match(/[\+]/)) {
+      lexeme.token.sum = chunk.toString();
+      lexemStream.push(JSON.stringify(lexeme));
+      linesWatcher(1);
+    } else if (chunk.toString().match(/[\:]/)) {
+      lexeme.token.seperator = chunk.toString();
+      lexemStream.push(JSON.stringify(lexeme));
+      linesWatcher(1);
+    } else if (chunk.toString().match(/[;]/)) {
+      lexeme.token.print_seperator = chunk.toString();
+      lexemStream.push(JSON.stringify(lexeme));
+      linesWatcher(1);
+    }
+  }
+
+  fileStream.on("readable", () => {
+    let chunk;
+    while (null !== (chunk = fileStream.read(1))) {
+      const lexeme = {
+        token: {},
+        srcloc: { ...state, span: 0 },
+      };
+      if (chunk.toString().match(/[a-z]/i)) {
+        wordsReader(lexeme, chunk);
+      } else if (chunk.toString().match(/[\+\:;]/)) {
+        operatorReader(lexeme, chunk);
+      } else if (chunk.toString() === '"' || chunk.toString() === "'") {
+        stringsReader(lexeme, chunk);
+      } else if (chunk.toString().match(/[\.0-9]/)) {
+        numbersReader(lexeme, chunk);
+      } else if (chunk.toString() === ".") {
+      } else if (chunk.toString() === "\n") {
+        newLineReader(lexeme);
+      } else if (chunk.toString() === " ") {
+        linesWatcher(1);
+      } else {
+        undefineder(lexeme, chunk);
+      }
+    }
+  });
+
+  return lexemStream;
 };

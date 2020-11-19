@@ -1,6 +1,1 @@
-print 0012234
-print 00122.123
-print 00000
-print 0.0
-print .01
-print .
+print . -

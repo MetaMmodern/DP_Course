@@ -4,15 +4,19 @@ function main() {
   try {
     const path = process.argv[2];
     if (!path) {
-      console.error(
-        "No file was provided. Please, provide the path to the file in arguments."
-      );
-      return;
+      const error = {
+        message: "NO_FILE",
+      };
+      throw new Error(JSON.stringify(error));
     }
-    const str = fileReader(path);
-    const lexems = lexer(str);
+    const FileStream = fileReader(path);
+    const lexemStream = lexer(FileStream);
+    lexemStream.on("data", (data) => {
+      console.log(JSON.parse(data.toString()));
+    });
   } catch (error) {
-    console.log(error);
+    console.log("catched", error.message);
+    return;
   }
 }
 
