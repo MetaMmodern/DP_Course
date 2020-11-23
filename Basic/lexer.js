@@ -1,4 +1,3 @@
-const { stat } = require("fs");
 const { Stream } = require("stream");
 const { scan, scan_numbers } = require("./scan_helpers");
 const chalk = require("chalk");
@@ -10,18 +9,17 @@ module.exports = function lexer(fileStream) {
   };
   const lexemStream = Stream.Duplex();
   lexemStream._read = () => {};
-  let newcol = 1;
   function linesWatcher(span) {
     state = { ...state, column: state.column + span };
   }
   function undefineder(lexeme, chunk) {
-    fileStream.close();
+    fileStream.pause();
     lexeme.token.undefined_token = chunk.toString();
     const error = {
       message: "UNDEFINED_TOKEN",
       lexeme,
     };
-    throw error;
+    fileStream.destroy(error);
   }
   function wordsReader(lexeme, chunk) {
     fileStream.unshift(chunk);
@@ -115,10 +113,13 @@ module.exports = function lexer(fileStream) {
         numbersReader(lexeme, chunk);
       } else if (chunk.toString() === ".") {
       } else if (chunk.toString() === "\n") {
+        console.log("new line");
         newLineReader(lexeme);
       } else if (chunk.toString() === " ") {
         linesWatcher(1);
       } else {
+        console.log("new line", chunk.toString(), "see?");
+
         undefineder(lexeme, chunk);
       }
     }
