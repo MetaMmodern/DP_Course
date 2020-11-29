@@ -8,10 +8,9 @@
       "type": "node",
       "request": "launch",
       "name": "Запустить программу",
-      "skipFiles": [
-        "<node_internals>/**"
-      ],
-      "program": "${workspaceFolder}\\lexer.js"
+      "skipFiles": ["<node_internals>/**"],
+      "program": "${workspaceFolder}\\index.js",
+      "args": ["./test.bsc"]
     }
   ]
 }

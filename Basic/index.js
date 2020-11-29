@@ -1,7 +1,24 @@
 const chalk = require("chalk");
+const { resolve } = require("path");
 const fileReader = require("./fileReader");
 const lexer = require("./lexer");
-function main() {
+const Parser = require("./parser");
+
+readNext = (stream) => {
+  return new Promise((resolve, reject) => {
+    stream.once("readable", () => {
+      const data = stream.read();
+      resolve(JSON.parse(data));
+      stream.removeAllListeners();
+    });
+    stream.on("error", reject);
+    stream.on("close", () => {
+      resolve(null);
+    });
+  });
+};
+
+async function main() {
   try {
     const path = process.argv[2];
     if (!path) {
@@ -12,17 +29,21 @@ function main() {
     }
     const FileStream = fileReader(path);
     const lexemStream = lexer(FileStream);
-    lexemStream.on("data", (data) => {
-      console.log(JSON.parse(data.toString()));
-    });
+    // lexemStream.on("data", (data) => {
+    //   console.log(data.toString());
+    // });
+    const parser = new Parser(lexemStream, { new_line: "" });
+    const AST = await parser.getAST();
+    console.log(JSON.stringify(AST, null, 4));
     FileStream.on("error", (err) => {
       if (err.message === "UNDEFINED_TOKEN") {
         console.log(
           chalk.red(
-            `${path} :\n${err.lexeme.srcloc.line}:${err.lexeme.srcloc.column}\tUndefined token '${err.lexeme.token.undefined_token}' found.`
+            `${resolve(path)} :\n${err.lexeme.srcloc.line}:${
+              err.lexeme.srcloc.column
+            }\tUndefined token '${err.lexeme.token.undefined_token}' found.`
           )
         );
-        console.log(err.lexeme.token.undefined_token);
       }
     });
   } catch (error) {
@@ -35,4 +56,4 @@ function main() {
   }
 }
 
-main();
+main().then(() => {});

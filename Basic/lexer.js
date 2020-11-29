@@ -7,8 +7,13 @@ module.exports = function lexer(fileStream) {
     line: 1,
     column: 1,
   };
-  const lexemStream = Stream.Duplex();
+  const lexemStream = Stream.Duplex({
+    writableObjectMode: true,
+    readableObjectMode: true,
+  });
   lexemStream._read = () => {};
+  lexemStream._write = () => {};
+
   function linesWatcher(span) {
     state = { ...state, column: state.column + span };
   }
@@ -75,7 +80,7 @@ module.exports = function lexer(fileStream) {
   }
   function newLineReader(lexeme) {
     lexeme.srcloc.span = 1;
-    lexeme.token.new_line = "";
+    lexeme.token.new_line = true;
     lexemStream.push(JSON.stringify(lexeme));
     state = { line: state.line + 1, column: 1 };
   }
@@ -113,16 +118,16 @@ module.exports = function lexer(fileStream) {
         numbersReader(lexeme, chunk);
       } else if (chunk.toString() === ".") {
       } else if (chunk.toString() === "\n") {
-        console.log("new line");
         newLineReader(lexeme);
       } else if (chunk.toString() === " ") {
         linesWatcher(1);
       } else {
-        console.log("new line", chunk.toString(), "see?");
-
         undefineder(lexeme, chunk);
       }
     }
+  });
+  fileStream.on("end", () => {
+    lexemStream.destroy();
   });
 
   return lexemStream;
