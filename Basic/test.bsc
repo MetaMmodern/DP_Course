@@ -1,1 +1,1 @@
-10 goto 1+1
+10 goto 1 : print "Bogdan" 10

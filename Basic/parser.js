@@ -51,7 +51,9 @@ class Parser {
         this.tokenStream.unshift(JSON.stringify(tempToken));
         return acc;
       } else {
-        throw new Error("Unexpected!");
+        throw new Error(
+          `Unexpected argument on on ${tempToken.srcloc.line}: ${tempToken.srcloc.column}`
+        );
       }
     } else {
       return acc;
@@ -60,14 +62,13 @@ class Parser {
 
   parseNumbersArg = async (leftHand = null, acc = null) => {
     const tempToken = await this.readNext(this.tokenStream);
-    console.log(tempToken, acc, leftHand);
     if (tempToken !== null) {
       const selfToken = tempToken.token;
-      if (selfToken?.integer && !leftHand?.token?.integer) {
+      if (selfToken?.hasOwnProperty("integer") && !leftHand?.token?.integer) {
         return await this.parseNumbersArg(tempToken);
       } else if (selfToken?.sum && leftHand !== null) {
         const rightHand = await this.readNext(this.tokenStream);
-        if (rightHand?.token?.integer) {
+        if (rightHand?.token?.hasOwnProperty("integer")) {
           const sum = new Tree("sum");
           if (acc === null) {
             sum.children.push(leftHand.token);
@@ -90,14 +91,19 @@ class Parser {
           selfToken?.print_seperator)
       ) {
         this.tokenStream.unshift(JSON.stringify(tempToken));
-        return acc;
+        return leftHand === "leftTree" ? acc : [leftHand.token];
       } else {
-        console.log(leftHand, tempToken);
-        throw new Error("Unexpected token in summing");
+        throw new Error(
+          `Unexpected token "${Object.keys(tempToken.token)[0]}" on ${
+            tempToken.srcloc.line
+          }: ${tempToken.srcloc.column}`
+        );
       }
     } else {
       if (leftHand?.token?.sum) {
-        throw new Error("Unexpected in parseNumbersArg");
+        throw new Error(
+          `Unexpected in parseNumbersArg on on ${tempToken.srcloc.line}: ${tempToken.srcloc.column}`
+        );
       } else {
         if (acc === null) {
           return [leftHand?.token];
@@ -112,11 +118,15 @@ class Parser {
     if (tempToken?.token?.new_line || tempToken?.token?.seperator) {
       this.tokenStream.unshift(JSON.stringify(tempToken));
     }
+    if (prevToken?.token?.print && tempToken?.token?.seperator) {
+      this.tokenStream.unshift(JSON.stringify(tempToken));
+      return [];
+    }
     if (!prevToken?.token?.end && tempToken?.token?.seperator) {
       throw new Error(
         `Unexpected seperator, expected "${
           Object.keys(prevToken?.token)[0]
-        }" arguments.`
+        }" arguments on ${tempToken.srcloc.line}: ${tempToken.srcloc.column}.`
       );
     }
     if (
@@ -130,7 +140,9 @@ class Parser {
       throw new Error(
         `Unexpected ${
           Object.keys(tempToken?.token)[0]
-        }, expected seperator, new line or EOF`
+        }, expected seperator, new line or EOF on on ${
+          tempToken.srcloc.line
+        }: ${tempToken.srcloc.column}`
       );
     }
 
@@ -142,7 +154,9 @@ class Parser {
       } else if (prevToken?.token?.goto) {
         if (!selfToken?.hasOwnProperty("integer")) {
           throw new Error(
-            `Unexpected "${Object.keys(selfToken)[0]}", integer was expected.`
+            `Unexpected "${Object.keys(selfToken)[0]}" at ${
+              tempToken.srcloc.line
+            }: ${tempToken.srcloc.column}, integer was expected.`
           );
         } else {
           return await this.parseNumbersArg();
@@ -179,9 +193,9 @@ class Parser {
           return await this.parseLine(tempToken, [...acc, functionCall]);
         } else {
           throw new Error(
-            `Unexpected call of ${JSON.stringify(
-              selfToken
-            )}, seperator was expected.`
+            `Unexpected call of ${JSON.stringify(selfToken)} at ${
+              tempToken.srcloc.line
+            }: ${tempToken.srcloc.column}, seperator was expected.`
           );
         }
       } else if (selfToken.seperator) {
@@ -189,7 +203,11 @@ class Parser {
       } else if (selfToken.new_line) {
         return acc;
       } else {
-        throw new Error(`Unexpected token ${JSON.stringify(selfToken)}`);
+        throw new Error(
+          `Unexpected token "${Object.keys(selfToken)[0]}" on ${
+            tempToken.srcloc.line
+          }: ${tempToken.srcloc.column}`
+        );
       }
     } else {
       this.tokenStream.push(null);
@@ -208,7 +226,11 @@ class Parser {
       } else if (selfToken.new_line) {
         return this.parseRoot(null, [...acc]);
       } else {
-        throw new Error(`Unexpected token ${JSON.stringify(selfToken)}`);
+        throw new Error(
+          `Unexpected token "${Object.keys(selfToken)[0]}" on ${
+            tempToken.srcloc.line
+          }: ${tempToken.srcloc.column}`
+        );
       }
     } else {
       return acc;

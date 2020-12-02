@@ -1,0 +1,14 @@
+10 goto 13 + 17
+20 goto   40 : goto 30
+22    
+
+25 end
+
+30 goto 20
+35 print "pasha" : rem pasha
+40 goto 40 : goto 3+12.0   + 5 : goto 30
+42 rem "some other code"
+45 print "o" ; "n" ; "e - first" : goto . + 0.5 + .5
+47 rem 42 : goto 30
+50
+60 print 't' ; 'wo'; 'second' : goto 25
