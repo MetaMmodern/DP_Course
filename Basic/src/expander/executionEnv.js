@@ -1,4 +1,4 @@
-const functions = require("./functions");
+const functions = require("../functions");
 
 module.exports = function execute(scope, lineFuncs) {
   let toEval = "";

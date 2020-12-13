@@ -1,10 +1,11 @@
 const chalk = require("chalk");
 const { resolve } = require("path");
-const fileReader = require("./fileReader");
-const lexer = require("./lexer");
-const Parser = require("./parser");
 const fs = require("fs");
-const expander = require("./expander");
+const fileReader = require("./src/reader");
+const lexer = require("./src/lexer");
+const Parser = require("./src/parser");
+const expander = require("./src/expander");
+
 async function main() {
   try {
     const path = process.argv[2];

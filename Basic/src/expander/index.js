@@ -29,7 +29,7 @@ function lineExpander(lineObject) {
 
 module.exports = function expander(fileName) {
   try {
-    const tree = require("./" + fileName).children;
+    const tree = require("../../" + fileName).children;
     tree.sort((a, b) => {
       return a.number - b.number;
     });
