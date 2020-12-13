@@ -1,5 +1,9 @@
 {
   "dependencies": {
     "chalk": "^4.1.0"
-  }
+  },
+  "name": "basic",
+  "version": "1.0.0",
+  "main": "index.js",
+  "license": "MIT"
 }

@@ -40,19 +40,30 @@ class Parser {
     const tempToken = await this.readNext(this.tokenStream);
     if (tempToken !== null) {
       const selfToken = tempToken.token;
-      if (selfToken.hasOwnProperty("string")) {
+      if (
+        selfToken.hasOwnProperty("string") &&
+        (prevToken?.token.hasOwnProperty("print_seperator") ||
+          prevToken === null)
+      ) {
         return await this.parsePrintArgs(tempToken, [...acc, selfToken]);
       } else if (selfToken.hasOwnProperty("print_seperator")) {
-        return await this.parsePrintArgs(tempToken, [...acc]);
-      } else if (selfToken.hasOwnProperty("integer")) {
+        return await this.parsePrintArgs(tempToken, acc);
+      } else if (
+        selfToken.hasOwnProperty("integer") &&
+        (prevToken?.token.hasOwnProperty("print_seperator") ||
+          prevToken === null)
+      ) {
         this.tokenStream.unshift(JSON.stringify(tempToken));
-        return await this.parseNumbersArg();
+        return this.parsePrintArgs(tempToken, [
+          ...acc,
+          await this.parseNumbersArg(),
+        ]);
       } else if (selfToken.hasOwnProperty("seperator") || selfToken?.new_line) {
         this.tokenStream.unshift(JSON.stringify(tempToken));
         return acc;
       } else {
         throw new Error(
-          `Unexpected argument on on ${tempToken.srcloc.line}: ${tempToken.srcloc.column}`
+          `Unexpected argument on ${tempToken.srcloc.line}: ${tempToken.srcloc.column}`
         );
       }
     } else {
@@ -91,7 +102,7 @@ class Parser {
           selfToken?.print_seperator)
       ) {
         this.tokenStream.unshift(JSON.stringify(tempToken));
-        return leftHand === "leftTree" ? acc : [leftHand.token];
+        return leftHand === "leftTree" ? acc : leftHand?.token;
       } else {
         throw new Error(
           `Unexpected token "${Object.keys(tempToken.token)[0]}" on ${
@@ -106,9 +117,9 @@ class Parser {
         );
       } else {
         if (acc === null) {
-          return [leftHand?.token];
+          return leftHand?.token;
         } else {
-          return [acc];
+          return acc;
         }
       }
     }
@@ -159,7 +170,7 @@ class Parser {
             }: ${tempToken.srcloc.column}, integer was expected.`
           );
         } else {
-          return await this.parseNumbersArg();
+          return [await this.parseNumbersArg()];
         }
       }
       return acc;

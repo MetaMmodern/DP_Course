@@ -3,7 +3,8 @@ const { resolve } = require("path");
 const fileReader = require("./fileReader");
 const lexer = require("./lexer");
 const Parser = require("./parser");
-
+const fs = require("fs");
+const expander = require("./expander");
 async function main() {
   try {
     const path = process.argv[2];
@@ -13,7 +14,9 @@ async function main() {
       };
       throw error;
     }
+
     const FileStream = fileReader(path);
+
     FileStream.on("error", (err) => {
       if (err.message === "UNDEFINED_TOKEN") {
         console.log(
@@ -25,13 +28,16 @@ async function main() {
         );
       }
     });
+
     const lexemStream = lexer(FileStream);
-    // lexemStream.on("data", (data) => {
-    //   console.log(data.toString());
-    // });
     const parser = new Parser(lexemStream, { new_line: "" });
     const AST = await parser.getAST();
-    console.log(require("util").inspect(AST, { colors: true, depth: null }));
+    const fileName = `./${Date.now().toString()}.json`;
+    fs.writeFile(fileName, JSON.stringify(AST, null, 2), (err) => {
+      if (!err) {
+        expander(fileName);
+      }
+    });
   } catch (error) {
     if (error.message === "NO_FILE") {
       console.log(chalk.red(`No file provided.`));

@@ -48,7 +48,7 @@ module.exports = function lexer(fileStream) {
   }
   function stringsReader(lexeme, chunk) {
     const scanned = scan(fileStream, chunk.toString());
-    lexeme.token.string = scanned;
+    lexeme.token.string = chunk === '"' ? `'${scanned}'` : `"${scanned}"`;
     lexeme.srcloc.span = scanned.length + 2;
     lexemStream.push(JSON.stringify(lexeme));
     linesWatcher(scanned.length + 2);
